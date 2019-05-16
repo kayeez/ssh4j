@@ -6,7 +6,6 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
 import com.kayee.ssh.exception.SSHConnectionException;
-import net.neoremind.sshxcute.core.ConnCredential;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

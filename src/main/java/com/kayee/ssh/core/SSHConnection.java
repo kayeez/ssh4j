@@ -8,7 +8,6 @@ import com.kayee.ssh.exception.SSHExecuteException;
 import com.kayee.ssh.exception.SSHFileTransferException;
 import com.kayee.ssh.handler.SSHExecRunningHandler;
 import com.kayee.ssh.vo.ConnVo;
-import net.neoremind.sshxcute.core.SysConfigOption;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.FileFilterUtils;
