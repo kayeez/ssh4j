@@ -2,7 +2,7 @@ package com.kayee.ssh4j.core;
 
 import java.io.File;
 
-public class SysConfigOption {
+public class SSHContext {
     public static long TIMEOUT = 100000L;
     public static boolean HALT_ON_FAILURE = false;
     public static long INTEVAL_TIME_BETWEEN_TASKS = 5000L;
@@ -13,6 +13,8 @@ public class SysConfigOption {
         ERROR_MSG_BUFFER_TEMP_FILE_PATH = System.getProperty("user.home") + File.separator + "sshxcute_err.msg";
     }
 
-    public SysConfigOption() {
+    private SSHContext() {
     }
+
+
 }

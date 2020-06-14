@@ -79,9 +79,4 @@ public abstract class AbstractCommand {
     }
 
 
-    public boolean checkSuccess(String log, int exitStatus) {
-        return exitStatus == 0;
-    }
-
-
 }

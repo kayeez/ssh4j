@@ -5,7 +5,7 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
-import com.kayee.ssh4j.exception.SSHConnectionException;
+import com.kayee.ssh4j.exception.SSHException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
@@ -39,9 +39,9 @@ public class SSHSessionPool {
      * @param password
      * @param port
      * @return
-     * @throws SSHConnectionException
+     * @throws SSHException
      */
-    public static synchronized SessionWrapper dispatchSessionForCurrentThread(String ip, String username, String password, Integer port) throws SSHConnectionException {
+    public static synchronized SessionWrapper dispatchSessionForCurrentThread(String ip, String username, String password, Integer port) throws SSHException {
 
         PoolKey key = new PoolKey(ip, username, port);
         List<SessionWrapper> wrapperList = pool.get(key);
@@ -49,7 +49,7 @@ public class SSHSessionPool {
             Integer firstConnCount = initMultipleSessionForHost(ip, username, password, port, DEFAULT_CONN_SIZE);
             wrapperList = pool.get(key);
             if (firstConnCount == 0) {
-                throw new SSHConnectionException("SSH Connection pool connect " + key + " failed");
+                throw new SSHException("SSH Connection pool connect " + key + " failed");
             }
         }
         long currentThreadId = Thread.currentThread().getId();
@@ -94,7 +94,7 @@ public class SSHSessionPool {
 
         }
         if (newWrapper == null) {
-            throw new SSHConnectionException(("SSH Connection pool connect " + key + " failed"));
+            throw new SSHException(("SSH Connection pool connect " + key + " failed"));
         }
 
         return newWrapper;
@@ -109,9 +109,9 @@ public class SSHSessionPool {
      * @param username
      * @param password
      * @param port
-     * @throws SSHConnectionException
+     * @throws SSHException
      */
-    private static void bindConn(String ip, String username, String password, Integer port) throws SSHConnectionException {
+    private static void bindConn(String ip, String username, String password, Integer port) throws SSHException {
         PoolKey key = new PoolKey(ip, username, port);
         List<SessionWrapper> wrapperList = pool.get(key);
         SessionWrapper existedConn = null;
@@ -139,9 +139,9 @@ public class SSHSessionPool {
      * @param password
      * @param port
      * @return
-     * @throws SSHConnectionException
+     * @throws SSHException
      */
-    private static Session openNewSession(String ip, String username, String password, Integer port) throws SSHConnectionException {
+    private static Session openNewSession(String ip, String username, String password, Integer port) throws SSHException {
 
         try {
             Session session = jsch.getSession(username, ip, port);
@@ -158,7 +158,7 @@ public class SSHSessionPool {
             log.info("connected " + username + "@" + ip + ":" + port + " with ssh takes time " + takeMs + " Milliseconds");
             return session;
         } catch (JSchException e) {
-            throw new SSHConnectionException(e);
+            throw new SSHException(e);
         }
 
     }
@@ -170,9 +170,9 @@ public class SSHSessionPool {
      * @param username
      * @param password
      * @param port
-     * @throws SSHConnectionException
+     * @throws SSHException
      */
-    private static void createNewConnForCurrentThread(String ip, String username, String password, Integer port) throws SSHConnectionException {
+    private static void createNewConnForCurrentThread(String ip, String username, String password, Integer port) throws SSHException {
         PoolKey key = new PoolKey(ip, username, port);
         List<SessionWrapper> wrapperList = pool.get(key);
         Session session = openNewSession(ip, username, password, port);
@@ -205,7 +205,7 @@ public class SSHSessionPool {
                 SessionWrapper connWrapper = new SessionWrapper(null, session, new Date());
                 wrapperList.add(connWrapper);
 
-            } catch (SSHConnectionException e) {
+            } catch (SSHException e) {
                 break;
             }
 

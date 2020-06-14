@@ -1,12 +1,9 @@
 package com.kayee.ssh4j.core;
 
 import com.jcraft.jsch.*;
-import com.kayee.ssh4j.command.AbstractCommand;
-import com.kayee.ssh4j.command.ConsoleCommand;
-import com.kayee.ssh4j.entity.Conn;
-import com.kayee.ssh4j.exception.SSHConnectionException;
-import com.kayee.ssh4j.exception.SSHExecuteException;
-import com.kayee.ssh4j.exception.SSHFileTransferException;
+import com.kayee.ssh4j.command.*;
+import com.kayee.ssh4j.entity.SSHLoginInformation;
+import com.kayee.ssh4j.exception.SSHException;
 import com.kayee.ssh4j.handler.SSHExecRunningHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -34,53 +31,44 @@ public class SSHConnection {
     private Integer port = 22;
     private SessionWrapper sessionWrapper;
 
-    public SSHConnection(Conn connInfo) {
-        this.ip = connInfo.getIp();
-        this.username = connInfo.getUser();
-        this.password = connInfo.getPwd();
-        if (connInfo.getPort() != null) {
-            this.port = connInfo.getPort();
+    public SSHConnection(SSHLoginInformation SSHLoginInformation) {
+        this.ip = SSHLoginInformation.getIp();
+        this.username = SSHLoginInformation.getUser();
+        this.password = SSHLoginInformation.getPwd();
+        if (SSHLoginInformation.getPort() != null) {
+            this.port = SSHLoginInformation.getPort();
         }
 
     }
 
-    public void setTaskExecuteTimeInterval(Long taskExecuteTimeInterval) {
-        this.taskExecuteTimeInterval = taskExecuteTimeInterval;
-    }
-
-    private void checkParam() throws SSHConnectionException {
-
+    private void checkParam() throws SSHException {
         if (ip == null) {
-            throw new SSHConnectionException("connection info host ip  can't be empty!");
+            throw new SSHException("ssh connection info host ip  can't be empty!");
         }
         if (username == null) {
-            throw new SSHConnectionException("connection info username  can't be empty!");
+            throw new SSHException("ssh connection info username  can't be empty!");
         }
         if (password == null) {
-            throw new SSHConnectionException("connection info password  can't be empty!");
+            throw new SSHException("ssh connection info password  can't be empty!");
         }
 
     }
 
-    public void openConnection() throws SSHConnectionException {
+    public void openConnection() throws SSHException {
         checkParam();
         sessionWrapper = SSHSessionPool.dispatchSessionForCurrentThread(ip, username, password, port);
-
         session = sessionWrapper.getSession();
     }
 
-    private void checkOpened() {
+    private void checkOpened() throws SSHException {
         if (session == null || !session.isConnected()) {
-            throw new IllegalStateException("Haven't open ssh session yet");
+            throw new SSHException("Haven't open ssh session yet");
         }
 
     }
 
-    public Boolean isConnected() {
-        return session.isConnected();
-    }
 
-    public Boolean releaseConnection() {
+    public void releaseConnection() {
         try {
             if (sessionWrapper != null) {
                 sessionWrapper.setThreadId(null);
@@ -98,113 +86,258 @@ public class SSHConnection {
             }
             log.info("SSH connection released!");
         } catch (Exception e) {
-            log.error("SSH connection release  failed with the following exception: " + e);
-            return false;
+            log.error("SSH connection release  failed with the following error: " + e);
         }
-        return true;
     }
 
 
-    public synchronized ExecResult exec(AbstractCommand cmd, SSHExecRunningHandler handler) throws SSHExecuteException {
+    public synchronized ExecResult exec(AbstractCommand command, SSHExecRunningHandler handler) throws SSHException {
         checkOpened();
-        ExecResult result = new ExecResult();
-
-        BufferedReader info = null;
         try {
-            channel = session.openChannel("exec");
-            String displayCommand = cmd.buildRunCmd();
-            String command = displayCommand;
-            if (cmd.isWithSudo()) {
-                command = cmd.buildRunCmdWithSudo(this.password);
-            }
-            ((ChannelExec) channel).setCommand(command);
-            channel.setInputStream(null);
-            channel.setOutputStream(System.out);
-            FileOutputStream fos = new FileOutputStream(SysConfigOption.ERROR_MSG_BUFFER_TEMP_FILE_PATH);
-            ((ChannelExec) channel).setErrStream(fos);
-            channel.connect();
-            info = new BufferedReader(new InputStreamReader(channel.getInputStream(), StandardCharsets.UTF_8));
-            log.info("Session[" + session + "] Start to run command at " + ip + " : " + displayCommand);
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while (true) {
-                while ((line = info.readLine()) != null) {
-                    sb.append(line).append("\n");
-                    if (handler != null) {
-                        handler.handle(cmd, line);
-                    }
-                }
-                if (channel.isClosed()) {
-                    if (cmd.checkSuccess(sb.toString(), channel.getExitStatus())) {
-                        log.info("Execute successfully for command");
-                        result.setSystemOut(sb.toString());
-                        result.setErrorOut("");
-                        result.setSuccess(true);
-                    } else {
-                        result.setSystemOut(sb.toString());
-                        result.setErrorOut(readStringFormFile(SysConfigOption.ERROR_MSG_BUFFER_TEMP_FILE_PATH));
-                        result.setSuccess(false);
-                        log.error("Execution failed while executing command: " + displayCommand);
-                        log.error("Error message: " + result.getErrorOut());
-                        if (SysConfigOption.HALT_ON_FAILURE) {
-                            log.info("The task has failed to execute :" + cmd.buildRunCmd() + ". So program exit.");
-                            break;
-                        }
-                    }
-                    break;
-                }
-
-            }
-            try {
-                Thread.sleep(taskExecuteTimeInterval);
-            } catch (Exception ee) {
-            }
-        } catch (JSchException | IOException e) {
-            log.error(e.getMessage());
-            throw new SSHExecuteException(e);
+            return executeCommandByType(command, handler);
         } finally {
-            if (info != null) {
-                try {
-                    info.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    log.error(e.getMessage());
-                }
-            }
-
-            if (channel != null) {
-                channel.disconnect();
-                log.info("Connection channel disconnect");
-            }
-
-        }
-        return result;
-    }
-
-
-    private void openSftpChannel() throws SSHFileTransferException {
-        try {
-            sftpChannel = (ChannelSftp) session.openChannel("sftp");
-            sftpChannel.connect();
-        } catch (JSchException e) {
-            throw new SSHFileTransferException(e.getMessage());
+            closeChannel();
         }
     }
 
+    private void closeChannel() {
+        if (channel != null) {
+            channel.disconnect();
+            log.info("Connection channel disconnect");
+        }
+        if (sftpChannel != null) {
+            sftpChannel.disconnect();
+            log.info("Sftp channel disconnect");
+        }
 
-    public synchronized void uploadFileToServer(InputStream is, String remoteFileAbsolutePath) throws SSHFileTransferException {
-        checkOpened();
+    }
+
+    private ExecResult executeCommandByType(AbstractCommand command, SSHExecRunningHandler handler) throws SSHException {
+        if (command instanceof ConsoleCommand) {
+            ConsoleCommand executeCommand = (ConsoleCommand) command;
+            return executeConsoleCommand(executeCommand, handler);
+        } else if (command instanceof DownloadFileCommand) {
+            DownloadFileCommand executeCommand = (DownloadFileCommand) command;
+            return downloadFileFromServer(executeCommand);
+        } else if (command instanceof ShellCommand) {
+            ShellCommand executeCommand = (ShellCommand) command;
+            return executeShellCommand(executeCommand, handler);
+        } else if (command instanceof UploadContentCommand) {
+            UploadContentCommand executeCommand = (UploadContentCommand) command;
+            return uploadContent(executeCommand);
+        } else if (command instanceof UploadDirCommand) {
+            UploadDirCommand executeCommand = (UploadDirCommand) command;
+            return uploadDir(executeCommand, handler);
+        } else if (command instanceof UploadFileCommand) {
+            UploadFileCommand executeCommand = (UploadFileCommand) command;
+            return uploadFile(executeCommand);
+        } else if (command instanceof UploadStreamCommand) {
+            UploadStreamCommand executeCommand = (UploadStreamCommand) command;
+            return uploadStream(executeCommand);
+        } else {
+            throw new SSHException("Unsupported command type " + command.getClass());
+        }
+    }
+
+    private ExecResult uploadStream(UploadStreamCommand command) throws SSHException {
         openSftpChannel();
+        String remoteFileAbsolutePath = command.getRemoteFileAbsolutePath();
         SlashPath filePath = new SlashPath(remoteFileAbsolutePath);
         String parentAbsolutePath = makeRemoteDirs(filePath.getParentPath());
         String remoteFullPath = new SlashPath(parentAbsolutePath, filePath.getName()).getFullPath();
         try {
-            sftpChannel.put(is, remoteFullPath);
+            sftpChannel.put(command.getStream(), remoteFullPath);
         } catch (SftpException e) {
-            throw new SSHFileTransferException(e);
-        } finally {
-            closeSftpChannel();
+            throw new SSHException(e);
         }
+        return ExecResult.builder()
+                .standardOutputMessage("upload success , remote path is " + remoteFullPath)
+                .success(true).build();
+    }
+
+
+    private ExecResult uploadFile(UploadFileCommand command) throws SSHException {
+        openSftpChannel();
+        String remoteFileAbsolutePath = command.getRemoteFileAbsolutePath();
+        SlashPath filePath = new SlashPath(remoteFileAbsolutePath);
+        String parentAbsolutePath = makeRemoteDirs(filePath.getParentPath());
+        String remoteFullPath = new SlashPath(parentAbsolutePath, filePath.getName()).getFullPath();
+        try {
+            sftpChannel.put(command.getLocalFileAbsolutePath(), remoteFullPath);
+        } catch (SftpException e) {
+            throw new SSHException(e);
+        }
+        return ExecResult.builder()
+                .standardOutputMessage("upload local file " + command.getLocalFileAbsolutePath() + " success , remote path is " + remoteFullPath)
+                .success(true).build();
+    }
+
+    private ExecResult uploadDir(UploadDirCommand command, SSHExecRunningHandler handler) throws SSHException {
+        openSftpChannel();
+        String localDir = command.getLocalDir();
+        String remoteParentDir = command.getRemoteParentDir();
+        File localDirFile = new File(localDir);
+        if (!localDirFile.exists()) {
+            throw new SSHException("local directory doesn't exist!");
+        }
+        if (!localDirFile.isDirectory()) {
+            throw new SSHException(localDir + " is a file!");
+        }
+        SlashPath remoteBaseDirPath = new SlashPath(remoteParentDir, localDirFile.getName());
+        makeRemoteDirs(remoteBaseDirPath.getFullPath());
+        Collection<File> files = FileUtils.listFiles(localDirFile, FileFilterUtils.trueFileFilter(), FileFilterUtils.trueFileFilter());
+        for (File f : files) {
+            String localDirPath = localDirFile.getAbsolutePath();
+            String currentFileParentPath = f.getParentFile().getAbsolutePath();
+            String subParent = currentFileParentPath.substring(localDirPath.length());
+            try {
+                SlashPath rp = new SlashPath(remoteBaseDirPath, subParent);
+                String rpAbsolute = makeRemoteDirs(rp.getFullPath());
+                String remoteFullPath = new SlashPath(rpAbsolute, f.getName()).getFullPath();
+                sftpChannel.put(f.getAbsolutePath(), remoteFullPath);
+            } catch (SftpException e1) {
+                throw new SSHException(e1);
+            }
+        }
+        return ExecResult.builder()
+                .standardOutputMessage("upload local dir " + localDir + " success , remote path is " + remoteParentDir)
+                .success(true).build();
+    }
+
+    private ExecResult uploadContent(UploadContentCommand command) throws SSHException {
+        try {
+            UploadStreamCommand uploadStreamCommand = new UploadStreamCommand(command.getRemoteFileAbsolutePath(), IOUtils.toInputStream(command.getContent(), StandardCharsets.UTF_8.name()));
+            return uploadStream(uploadStreamCommand);
+        } catch (IOException e) {
+            throw new SSHException(e);
+        }
+
+    }
+
+    private ExecResult executeShellCommand(ShellCommand command, SSHExecRunningHandler handler) throws SSHException {
+        SlashPath fullShellPath = new SlashPath(command.getShellServerWorkDir(), command.getShellName());
+        if (command.getShellContent() != null && !"".equals(command.getShellContent())) {
+            try {
+                InputStream is = IOUtils.toInputStream(command.getShellContent(), StandardCharsets.UTF_8.name());
+                UploadStreamCommand uploadStreamCommand = new UploadStreamCommand(fullShellPath.getFullPath(), is);
+                uploadStream(uploadStreamCommand);
+            } catch (IOException e) {
+                throw new SSHException(e);
+            }
+
+        }
+        ConsoleCommand executeCommand = new ConsoleCommand()
+                .appendCommand("chmod +x " + fullShellPath.getFullPath()).appendCommand(command.buildRunCmd());
+        executeCommand.setWithSudo(command.isWithSudo());
+        return executeConsoleCommand(executeCommand, handler);
+    }
+
+    private ExecResult downloadFileFromServer(DownloadFileCommand command) throws SSHException {
+        openSftpChannel();
+        String localFileAbsolutePath = command.getLocalFileAbsolutePath();
+        File parentFile = new File(localFileAbsolutePath).getParentFile();
+        if (!parentFile.exists() && !parentFile.mkdirs()) {
+            throw new SSHException("create local dir " + parentFile + " failed");
+        }
+        try {
+            sftpChannel.get(command.getRemoteFileAbsolutePath(), localFileAbsolutePath);
+        } catch (SftpException e) {
+            throw new SSHException(e);
+        }
+        return ExecResult.builder()
+                .standardOutputMessage("download remote file " + command.getRemoteFileAbsolutePath() + " success , local path is " + localFileAbsolutePath)
+                .success(true).build();
+    }
+
+    private void openExecuteChannel() throws SSHException {
+        try {
+            channel = session.openChannel("exec");
+        } catch (JSchException e) {
+            throw new SSHException(e);
+        }
+    }
+
+    public boolean executeSuccess(int exitStatus) {
+        return exitStatus == 0;
+    }
+
+    private ExecResult executeConsoleCommand(ConsoleCommand command, SSHExecRunningHandler handler) throws SSHException {
+        openExecuteChannel();
+        configureChannelCommand(command);
+        ExecResult execResult;
+        try (ByteArrayOutputStream errorStream = new ByteArrayOutputStream()) {
+            configureChannelStream(errorStream);
+            connectChannel();
+            execResult = waitUntilFinish(command, handler);
+            execResult.setErrorMessage(new String(errorStream.toByteArray(), StandardCharsets.UTF_8));
+            return execResult;
+        } catch (IOException e) {
+            throw new SSHException(e);
+        }
+    }
+
+    private void connectChannel() throws SSHException {
+        try {
+            channel.connect();
+        } catch (JSchException e) {
+            throw new SSHException(e);
+        }
+    }
+
+    private ExecResult waitUntilFinish(ConsoleCommand command, SSHExecRunningHandler handler) throws SSHException {
+        try (BufferedReader info = new BufferedReader(new InputStreamReader(channel.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder standardOutputMessage = new StringBuilder();
+            while (true) {
+                String line;
+                while ((line = info.readLine()) != null) {
+                    standardOutputMessage.append(line).append("\n");
+                    if (handler != null) {
+                        handler.handle(command, line);
+                    }
+                }
+                if (channel.isClosed()) {
+                    return ExecResult.builder()
+                            .success(executeSuccess(channel.getExitStatus()))
+                            .standardOutputMessage(standardOutputMessage.toString())
+                            .build();
+
+                }
+            }
+        } catch (IOException e) {
+            throw new SSHException(e);
+        }
+
+    }
+
+    private void configureChannelStream(OutputStream errorStream) {
+        channel.setInputStream(null);
+        channel.setOutputStream(System.out);
+        ((ChannelExec) channel).setErrStream(errorStream);
+    }
+
+    private void configureChannelCommand(ConsoleCommand command) {
+        String displayCommand = command.buildRunCmd();
+        String executeCommand = displayCommand;
+        if (command.isWithSudo()) {
+            executeCommand = command.buildRunCmdWithSudo(this.password);
+        }
+        ((ChannelExec) channel).setCommand(executeCommand);
+        log.info("Session[" + session + "] Start to run command [ " + displayCommand + " ] at " + ip);
+    }
+
+
+    private void openSftpChannel() throws SSHException {
+        try {
+            sftpChannel = (ChannelSftp) session.openChannel("sftp");
+            sftpChannel.connect();
+        } catch (JSchException e) {
+            throw new SSHException(e);
+        }
+    }
+
+
+    public synchronized void uploadFileToServer(InputStream is, String remoteFileAbsolutePath) throws SSHException {
+        checkOpened();
 
 
     }
@@ -216,247 +349,17 @@ public class SSHConnection {
         }
     }
 
-    /**
-     * 上传文件到服务器
-     *
-     * @param localFilePath  本地文件绝对路径
-     * @param remoteFileName 远端文件绝对路径
-     * @throws SSHFileTransferException
-     */
-    public synchronized void uploadFileToServer(String localFilePath, String remoteFileName) throws SSHFileTransferException {
-        checkOpened();
-        openSftpChannel();
-        SlashPath localPath = new SlashPath(localFilePath);
-        SlashPath remotePath = new SlashPath(remoteFileName);
-        String parentAbsolutePath = makeRemoteDirs(remotePath.getParentPath());
-        String remoteFullPath = new SlashPath(parentAbsolutePath, remotePath.getName()).getFullPath();
-        try {
-            sftpChannel.put(localPath.getFullPath(), remoteFullPath);
-        } catch (SftpException e) {
-            throw new SSHFileTransferException(e);
-        } finally {
-            closeSftpChannel();
-        }
 
+    private String makeRemoteDirs(String remoteParentDir) throws SSHException {
+        ConsoleCommand mkdir = new ConsoleCommand()
+                .appendCommand("mkdir -p " + remoteParentDir)
+                .appendCommand("cd " + remoteParentDir).appendCommand("pwd");
+        ExecResult result = executeConsoleCommand(mkdir, null);
+        if (result.isSuccess()) {
+            return result.getStandardOutputMessage().trim();
+        }
+        throw new SSHException("make dir " + remoteParentDir + " error " + result.getErrorMessage());
 
     }
-
-
-    private String readStringFormFile(String filename) {
-        try (InputStream is = new FileInputStream(filename)) {
-            return IOUtils.toString(is, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return "";
-
-    }
-
-    /**
-     * 下载远端文件到本地
-     *
-     * @param remoteFileAbsolutePath 远端文件绝对路径
-     * @param localFileAbsolutePath  本地文件绝对路径
-     * @throws SSHFileTransferException
-     */
-    public synchronized void downloadFileFromServer(String remoteFileAbsolutePath, String localFileAbsolutePath) throws SSHFileTransferException {
-        openSftpChannel();
-        File parentFile = new File(localFileAbsolutePath).getParentFile();
-        if (!parentFile.exists() && !parentFile.mkdirs()) {
-            throw new SSHFileTransferException("创建本地文件夹失败" + parentFile);
-        }
-        try {
-            sftpChannel.get(remoteFileAbsolutePath, localFileAbsolutePath);
-        } catch (SftpException e) {
-            throw new SSHFileTransferException(e);
-        } finally {
-            closeSftpChannel();
-
-        }
-
-    }
-
-
-    /**
-     * 将本地文件夹下的所有内容上传到服务器
-     *
-     * @param localDir        需要是已经存在的文件夹
-     * @param remoteParentDir 该路径为绝对路径，没有的话会自动创建 <br/>
-     *                        该文件夹做为上传的父目录如将本地/user/abc 上传到服务器/opt/efg <br/>
-     *                        则最终服务器上呈现的是/opt/efg/abc 目录
-     * @throws SSHFileTransferException
-     */
-    public synchronized void uploadLocalDirToServer(String localDir, String remoteParentDir) throws SSHFileTransferException {
-        checkOpened();
-        openSftpChannel();
-        try {
-            File localDirFile = new File(localDir);
-            if (!localDirFile.exists()) {
-                throw new SSHFileTransferException("local directory doesn't exist!");
-            }
-            if (!localDirFile.isDirectory()) {
-                throw new SSHFileTransferException(localDir + " is a file!");
-            }
-            SlashPath remoteBaseDirPath = new SlashPath(remoteParentDir, localDirFile.getName());
-            // 创建顶层目录
-            makeRemoteDirs(remoteBaseDirPath.getFullPath());
-            Collection<File> files = FileUtils.listFiles(localDirFile, FileFilterUtils.trueFileFilter(), FileFilterUtils.trueFileFilter());
-
-            for (File f : files) {
-                String localDirPath = localDirFile.getAbsolutePath();
-                String currentFileParentPath = f.getParentFile().getAbsolutePath();
-                // 截取出当前文件的父文件夹路径
-                String subParent = currentFileParentPath.substring(localDirPath.length());
-                try {
-                    SlashPath rp = new SlashPath(remoteBaseDirPath, subParent);
-                    // 重新将路径构建为/ 开头的绝对路径
-                    String rpAbsolute = makeRemoteDirs(rp.getFullPath());
-                    String remoteFullPath = new SlashPath(rpAbsolute, f.getName()).getFullPath();
-                    sftpChannel.put(f.getAbsolutePath(), remoteFullPath);
-                } catch (SftpException e1) {
-                    throw new SSHFileTransferException(e1);
-                }
-            }
-        } finally {
-            closeSftpChannel();
-        }
-
-    }
-
-
-    /**
-     * 连续的创建不存在的文件夹
-     *
-     * @param remoteParentDir 文件夹路径
-     * @throws SSHFileTransferException
-     */
-    private String makeRemoteDirs(String remoteParentDir) throws SSHFileTransferException {
-        ConsoleCommand mkdir = new ConsoleCommand();
-        mkdir.appendCommand("mkdir -p " + remoteParentDir).appendCommand("cd " + remoteParentDir).appendCommand("pwd");
-        try {
-            ExecResult result = exec(mkdir, null);
-            if (result.isSuccess()) {
-                return result.getSystemOut().trim();
-            }
-            throw new SSHFileTransferException("make dir " + remoteParentDir + " error " + result.getErrorOut());
-        } catch (SSHExecuteException e) {
-            throw new SSHFileTransferException("make dir " + remoteParentDir + " error " + e);
-        }
-    }
-
-
-    public synchronized void downloadFileFromServer(String remoteFilePath, OutputStream out) throws SSHFileTransferException {
-        checkOpened();
-        openSftpChannel();
-        try {
-            sftpChannel.get(remoteFilePath, out);
-        } catch (SftpException e) {
-            throw new SSHFileTransferException(e);
-        } finally {
-            closeSftpChannel();
-        }
-
-    }
-
-
-    /**
-     * 下载文件夹，非sudo查看文件列表方式
-     *
-     * @param remoteDir
-     * @param localDir
-     * @throws SSHFileTransferException
-     */
-    public synchronized void downloadDir(String remoteDir, String localDir) throws SSHFileTransferException {
-        downloadDir(remoteDir, localDir, false);
-    }
-
-    /**
-     * 下载文件夹
-     *
-     * @param remoteDir 远端文件夹绝对路径
-     * @param localDir  本地文件夹，作为父目录
-     * @param withSudo  是否需要sudo权限进行下载
-     * @throws SSHFileTransferException
-     */
-    public synchronized void downloadDir(String remoteDir, String localDir, Boolean withSudo) throws SSHFileTransferException {
-        checkOpened();
-        openSftpChannel();
-        ChannelExec cmdChannel = null;
-        BufferedReader info = null;
-        String displayCmd = "ls -lR " + remoteDir;
-        String lsCmd = displayCmd;
-        if (withSudo != null && withSudo) {
-            lsCmd = "echo '" + password + "' |sudo -S ls -lR " + remoteDir;
-        }
-
-        try {
-            cmdChannel = (ChannelExec) session.openChannel("exec");
-            cmdChannel.setCommand(lsCmd);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            cmdChannel.setErrStream(out);
-            cmdChannel.connect();
-            info = new BufferedReader(new InputStreamReader(cmdChannel.getInputStream(), StandardCharsets.UTF_8));
-            String line;
-            String currentSubDirPath = "";
-            StringBuilder infoSb = new StringBuilder();
-            while ((line = info.readLine()) != null) {
-                infoSb.append(line).append("\n");
-                boolean isMainDir = (remoteDir + "/:").equals(line) || (remoteDir + ":").equals(line);
-                boolean lineIsSubDir = line.startsWith(remoteDir) && line.endsWith(":") && !isMainDir;
-                if (isMainDir) {
-                    File dir = new File(localDir);
-                    if (!dir.exists() && !dir.mkdirs()) {
-                        throw new SSHFileTransferException("创建文件夹失败：" + dir);
-                    }
-
-                } else if (lineIsSubDir) {
-                    // 文件夹
-                    String subDirPath = line.substring(remoteDir.length(), line.lastIndexOf(":"));
-                    if (subDirPath.startsWith(SlashPath.PATH_SEPARATOR)) {
-                        subDirPath = subDirPath.substring(1);
-                    }
-                    File dir = new File(localDir, subDirPath);
-                    if (!dir.exists() && !dir.mkdirs()) {
-                        throw new SSHFileTransferException("创建文件夹失败：" + dir);
-                    }
-                    currentSubDirPath = subDirPath;
-                } else if (line.startsWith("-")) {
-                    // 文件
-                    String[] arr = line.split("\\s+");
-                    String fileName = arr[arr.length - 1];
-                    String remoteFilePath = remoteDir + SlashPath.PATH_SEPARATOR + currentSubDirPath + SlashPath.PATH_SEPARATOR + fileName;
-                    if ("".equals(currentSubDirPath)) {
-                        remoteFilePath = remoteDir + SlashPath.PATH_SEPARATOR + fileName;
-                    }
-                    this.sftpChannel.get(remoteFilePath, localDir + SlashPath.PATH_SEPARATOR + currentSubDirPath);
-                    log.info(" successfully downloaded server " + ip + " file " + remoteFilePath + " to local dir " + localDir);
-                }
-
-            }
-            if (0 != cmdChannel.getExitStatus()) {
-                byte[] bytes = out.toByteArray();
-                throw new SSHFileTransferException("执行命令 " + displayCmd + " 失败:" + new String(bytes, StandardCharsets.UTF_8) + "\n" + infoSb);
-
-            }
-        } catch (JSchException | IOException | SftpException e) {
-            throw new SSHFileTransferException(e);
-        } finally {
-            if (info != null) {
-                try {
-                    info.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-            }
-            if (cmdChannel != null) {
-                cmdChannel.disconnect();
-            }
-            closeSftpChannel();
-        }
-
-
-    }
-
 
 }
