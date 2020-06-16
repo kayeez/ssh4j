@@ -34,19 +34,4 @@ public class CommandExecutorTest {
         });
     }
 
-    @Test
-    public void test_list_remove(){
-        List<String> list = new ArrayList<>();
-        list.add("1");
-        list.add("2");
-        list.add("3");
-        list.add("4");
-        list.add("5");
-
-        List<String> collect = list.stream().filter(n -> Integer.parseInt(n) >= 3).collect(Collectors.toList());
-        System.out.println(collect);
-        collect.forEach(list::remove);
-        System.out.println(list);
-
-    }
 }
