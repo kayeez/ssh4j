@@ -23,7 +23,7 @@ public class CommandExecutorTest {
                 .port(22)
                 .password("1234")
                 .build();
-        Map<AbstractCommand, ExecuteResult> exec = new CommandExecutor().execute(new CommandExecutionRunningHandler() {
+        /*Map<AbstractCommand, ExecuteResult> exec = new CommandExecutor().execute(new CommandExecutionRunningHandler() {
             @Override
             public void handle(AbstractCommand cmd, String outOneLineLog) {
                 System.out.println(outOneLineLog);
@@ -31,7 +31,7 @@ public class CommandExecutorTest {
         }, loginInformation, consoleCommand1);
         exec.forEach((key, val) -> {
             System.out.println(val.isSuccess()+"\n"+val.getErrorMessage()+"\n"+val.getStandardOutputMessage());
-        });
+        });*/
     }
 
 }

@@ -2,3 +2,4 @@
 .idea/*
 *.impl
 *.iml
+/release.properties
