@@ -14,6 +14,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class ExecuteContext {
+    public volatile static long sshSessionLiveDurationMillSeconds = 1000 * 60 * 60;
+    public volatile static int sshSessionConnectTimeoutMillSeconds = 1000 * 60 * 60;
+    public volatile static int sshSessionInitializeDefaultSize = 2;
     private static Map<Class<? extends LoginInformation>, Constructor<? extends AbstractConnector>> connectorConstructorPool = new HashMap<>();
 
     static {
@@ -45,8 +48,4 @@ public class ExecuteContext {
             throw new CommandExecuteErrorException(e);
         }
     }
-
-
-    public static long sshSessionLiveDurationMillSeconds = 1000*60*60;
-    public static int sshSessionConnectTimeoutMillSeconds = 1000*60*60;
 }

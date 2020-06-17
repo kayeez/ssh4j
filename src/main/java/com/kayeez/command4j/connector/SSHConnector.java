@@ -2,10 +2,8 @@ package com.kayeez.command4j.connector;
 
 import com.jcraft.jsch.*;
 import com.kayeez.command4j.annotation.ConnectorLoginMapping;
-import com.kayee.command4j.command.*;
 import com.kayeez.command4j.command.*;
 import com.kayeez.command4j.core.SSHSessionPool;
-import com.kayee.command4j.entity.*;
 import com.kayeez.command4j.entity.ExecuteResult;
 import com.kayeez.command4j.entity.Path;
 import com.kayeez.command4j.entity.SSHLoginInformation;

@@ -1,7 +1,6 @@
 package com.kayeez.command4j.connector;
 
 import com.kayeez.command4j.annotation.ConnectorLoginMapping;
-import com.kayee.command4j.command.*;
 import com.kayeez.command4j.command.*;
 import com.kayeez.command4j.entity.ExecuteResult;
 import com.kayeez.command4j.entity.RuntimeLoginInformation;
@@ -47,7 +46,7 @@ public class RuntimeConnector extends AbstractConnector {
                     throw new CommandExecuteErrorException("sudo password is required");
                 }
                 executeCommandContent = command.buildRunCmdWithSudo(runtimeLoginInformation.getSudoPassword());
-            }else {
+            } else {
                 executeCommandContent = command.buildRunCmd();
             }
             builder.command("sh", "-c", executeCommandContent);
@@ -65,33 +64,9 @@ public class RuntimeConnector extends AbstractConnector {
         }
     }
 
-    @Override
-    protected ExecuteResult downloadFile(DownloadFileCommand command, CommandExecutionRunningHandler runningHandler) {
-        return null;
-    }
 
     @Override
     protected ExecuteResult executeShellCommand(ShellCommand command, CommandExecutionRunningHandler runningHandler) {
-        return null;
-    }
-
-    @Override
-    protected ExecuteResult uploadContent(UploadContentCommand command, CommandExecutionRunningHandler runningHandler) {
-        return null;
-    }
-
-    @Override
-    protected ExecuteResult uploadDir(UploadDirCommand command, CommandExecutionRunningHandler runningHandler) {
-        return null;
-    }
-
-    @Override
-    protected ExecuteResult uploadFile(UploadFileCommand command, CommandExecutionRunningHandler runningHandler) {
-        return null;
-    }
-
-    @Override
-    protected ExecuteResult uploadStream(UploadStreamCommand command, CommandExecutionRunningHandler runningHandler) {
         return null;
     }
 

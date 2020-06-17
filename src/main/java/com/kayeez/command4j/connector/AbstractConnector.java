@@ -1,6 +1,5 @@
 package com.kayeez.command4j.connector;
 
-import com.kayee.command4j.command.*;
 import com.kayeez.command4j.command.*;
 import com.kayeez.command4j.entity.ExecuteResult;
 import com.kayeez.command4j.exception.CommandExecuteErrorException;
@@ -45,12 +44,34 @@ public abstract class AbstractConnector {
     }
 
     protected abstract void open();
+
     protected abstract void close();
-    protected abstract ExecuteResult executeConsoleCommand(ConsoleCommand command, CommandExecutionRunningHandler runningHandler);
-    protected abstract ExecuteResult downloadFile(DownloadFileCommand command, CommandExecutionRunningHandler runningHandler);
-    protected abstract ExecuteResult executeShellCommand(ShellCommand command, CommandExecutionRunningHandler runningHandler);
-    protected abstract ExecuteResult uploadContent(UploadContentCommand command, CommandExecutionRunningHandler runningHandler);
-    protected abstract ExecuteResult uploadDir(UploadDirCommand command, CommandExecutionRunningHandler runningHandler);
-    protected abstract ExecuteResult uploadFile(UploadFileCommand command, CommandExecutionRunningHandler runningHandler);
-    protected abstract ExecuteResult uploadStream(UploadStreamCommand command, CommandExecutionRunningHandler runningHandler);
+
+    protected  ExecuteResult executeConsoleCommand(ConsoleCommand command, CommandExecutionRunningHandler runningHandler){
+        throw  new CommandExecuteErrorException("executing console command is unsupported operation");
+    }
+
+    protected  ExecuteResult downloadFile(DownloadFileCommand command, CommandExecutionRunningHandler runningHandler){
+        throw  new CommandExecuteErrorException("downloading file is unsupported operation");
+    }
+
+    protected  ExecuteResult executeShellCommand(ShellCommand command, CommandExecutionRunningHandler runningHandler){
+        throw  new CommandExecuteErrorException("executing shell command is unsupported operation");
+    }
+
+    protected  ExecuteResult uploadContent(UploadContentCommand command, CommandExecutionRunningHandler runningHandler){
+        throw  new CommandExecuteErrorException("uploading content is unsupported operation");
+    }
+
+    protected  ExecuteResult uploadDir(UploadDirCommand command, CommandExecutionRunningHandler runningHandler){
+        throw  new CommandExecuteErrorException("uploading dir is unsupported operation");
+    }
+
+    protected  ExecuteResult uploadFile(UploadFileCommand command, CommandExecutionRunningHandler runningHandler){
+        throw  new CommandExecuteErrorException("uploading file is unsupported operation");
+    }
+
+    protected  ExecuteResult uploadStream(UploadStreamCommand command, CommandExecutionRunningHandler runningHandler){
+        throw  new CommandExecuteErrorException("uploading stream is unsupported operation");
+    }
 }

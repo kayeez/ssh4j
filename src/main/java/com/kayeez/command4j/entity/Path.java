@@ -3,8 +3,6 @@ package com.kayeez.command4j.entity;
 import java.io.File;
 
 /**
- *
- *
  * @author: zhaokai
  * @create: 2018-09-07 15:19:10
  */

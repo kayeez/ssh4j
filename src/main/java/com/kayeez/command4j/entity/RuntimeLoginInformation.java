@@ -1,6 +1,7 @@
 package com.kayeez.command4j.entity;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Getter;
 
 @Builder
 @Getter

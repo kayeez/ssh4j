@@ -21,8 +21,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class SSHSessionPool {
     private volatile static SSHSessionPool instance;
-
-    private static final Integer DEFAULT_CONN_SIZE = 2;
     private static Map<PoolKey, List<SessionWrapper>> pool = new HashMap<>();
     private static JSch jsch = new JSch();
 
@@ -81,7 +79,7 @@ public class SSHSessionPool {
                 .build();
         if (pool.get(key) == null) {
             pool.put(key, new ArrayList<>());
-            for (int i = 1; i <= SSHSessionPool.DEFAULT_CONN_SIZE; i++) {
+            for (int i = 1; i <= ExecuteContext.sshSessionInitializeDefaultSize; i++) {
                 Session session = openSession(ip, username, password, port);
                 SessionWrapper connWrapper = new SessionWrapper(null, session, new Date());
                 pool.get(key).add(connWrapper);

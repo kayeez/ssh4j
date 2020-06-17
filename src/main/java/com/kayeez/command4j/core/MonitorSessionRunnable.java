@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MonitorSessionRunnable implements Runnable {
     private SSHSessionPool sessionPool = SSHSessionPool.getInstance();
+
     @Override
     public void run() {
         while (true) {
@@ -16,7 +17,7 @@ public class MonitorSessionRunnable implements Runnable {
                 Thread.sleep(ExecuteContext.sshSessionLiveDurationMillSeconds);
                 sessionPool.closeNotUsedSession(ExecuteContext.sshSessionLiveDurationMillSeconds);
             } catch (Exception e) {
-                log.error("session monitoring error {}",e.getMessage(),e);
+                log.error("session monitoring error {}", e.getMessage(), e);
             }
         }
     }
