@@ -1,6 +1,10 @@
 #### Command4j
 
-Command executor for Java .  It support two type of connector.
+Command executor for Java .
+
+It is a SSH java client and a runtime client . 
+
+It support two type of connector.
 - Runtime  
   Based on Java ProcessBuilder and Process classes
 - SSH  
