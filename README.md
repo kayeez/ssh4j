@@ -24,7 +24,7 @@ In progress
     Annotated by ConnectorLoginMapping(RuntimeLoginInformation.class)
   - SSH connector 
    
-  Annotated by ConnectorLoginMapping(SSHLoginInformation.class)
+    Annotated by ConnectorLoginMapping(SSHLoginInformation.class)
 ##### LoginInformation
   - Runtime login information
   - SSH login information
@@ -40,8 +40,8 @@ In progress
 #### Usage
    - CommandExecutor.execute  
    
-   It will create a connector by LoginInformation type.
-   
-   When RuntimeLoginInformation is gaven, It will create a RuntimeConnector.
-   
-   When SSHLoginInformation is gaven , It will create a SSHConnector.
+      It will create a connector by LoginInformation type.
+      
+      When RuntimeLoginInformation is gaven, It will create a RuntimeConnector.
+      
+      When SSHLoginInformation is gaven , It will create a SSHConnector.
