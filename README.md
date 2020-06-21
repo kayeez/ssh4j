@@ -1,6 +1,11 @@
 #### Command4j
 
-Command executor for Java .  
+Command executor for Java .  It support two type of connector.
+- Runtime  
+  Based on Java ProcessBuilder and Process classes
+- SSH  
+  Based on [JSCH project](http://www.jcraft.com/jsch/).
+  It will cache the SSH connection 
 
 #### Maven import
 In progress
