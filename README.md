@@ -1,4 +1,4 @@
-#### Command4j
+#### SSH4j
 
 Command executor for Java .
 
